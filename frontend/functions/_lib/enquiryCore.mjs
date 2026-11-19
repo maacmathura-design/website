@@ -1,3 +1,5 @@
+import tls from 'node:tls';
+import nodemailer from 'nodemailer';
 import options from './enquiryOptions.mjs';
 
 const LIMITS = { name: 80, email: 120, message: 1000, sourcePage: 300, bodyBytes: 10 * 1024 };
@@ -218,49 +220,71 @@ function mailConfigured(env) {
   return Boolean(env?.RESEND_API_KEY && env?.ENQUIRY_TO_EMAIL && env?.ENQUIRY_FROM_EMAIL);
 }
 
+const SMTP_HOST = 'smtp.gmail.com';
+
+function isAuthFailure(error) {
+  return error?.code === 'EAUTH' || error?.responseCode === 535 || error?.responseCode === 534;
+}
+
+async function deliverWithGmail(message, env) {
+  const transport = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: 465,
+    secure: true,
+    auth: { user: env.ENQUIRY_FROM_EMAIL, pass: env.RESEND_API_KEY },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
+    tls: { rejectUnauthorized: true, servername: SMTP_HOST },
+    getSocket(_options, callback) {
+      const socket = tls.connect({ host: SMTP_HOST, port: 465, servername: SMTP_HOST, rejectUnauthorized: true });
+      socket.once('secureConnect', () => callback(null, { connection: socket, secured: true }));
+      socket.once('error', (error) => callback(error));
+    },
+  });
+  try {
+    return await transport.sendMail(message);
+  } finally {
+    transport.close();
+  }
+}
+
 function clientIp(request) {
   return request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
 }
 
-async function sendWithResend(enquiry, env, fetchImpl) {
+async function sendWithGmail(enquiry, env, sendImpl) {
   const { subject, text: plain, html } = buildEnquiryEmail(enquiry);
-  let response;
+  const message = {
+    from: env.ENQUIRY_FROM_EMAIL,
+    to: env.ENQUIRY_TO_EMAIL,
+    replyTo: enquiry.email,
+    subject,
+    text: plain,
+    html,
+  };
   try {
-    response = await fetchImpl('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: env.ENQUIRY_FROM_EMAIL,
-        to: [env.ENQUIRY_TO_EMAIL],
-        reply_to: enquiry.email,
-        subject,
-        text: plain,
-        html,
-      }),
-    });
+    const info = await sendImpl(message, env);
+    return { ok: true, id: info?.messageId || null };
   } catch (error) {
-    log('error', 'enquiry.email_error', { kind: 'network', name: error?.name });
-    return { ok: false, status: 502, error: 'email_failed' };
+    const authFailed = isAuthFailure(error);
+    log('error', 'enquiry.email_error', {
+      kind: authFailed ? 'auth_failed' : 'delivery_failed',
+      code: error?.code || null,
+      responseCode: error?.responseCode || null,
+    });
+    return { ok: false, status: authFailed ? 503 : 502, error: authFailed ? 'email_unavailable' : 'email_failed' };
   }
-  if (response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    return { ok: true, id: payload?.id };
-  }
-  const unavailable = response.status === 401 || response.status === 403;
-  log('error', 'enquiry.email_error', { kind: unavailable ? 'auth_failed' : 'delivery_failed', status: response.status });
-  return { ok: false, status: unavailable ? 503 : 502, error: unavailable ? 'email_unavailable' : 'email_failed' };
 }
 
 /**
- * Pages Function handler. `fetchImpl` is injectable so tests never call Resend.
- * The API key is read from env and is not written to the response or the log.
+ * Pages Function handler. `sendImpl` is injectable so tests never open SMTP.
+ * RESEND_API_KEY is the existing Pages secret and holds the Gmail app password.
+ * Its value is not written to the response or the log.
  */
 export function createEnquiryRuntime({
   now = () => Date.now(),
-  fetchImpl = fetch,
+  sendImpl = deliverWithGmail,
   windowMs = 15 * 60 * 1000,
   max = 5,
   duplicateWindowMs = 10 * 60 * 1000,
@@ -271,7 +295,11 @@ export function createEnquiryRuntime({
 
   const health = (env) => {
     const configured = mailConfigured(env);
-    return json(200, { status: configured ? 'ok' : 'degraded', mail: configured ? 'configured' : 'not_configured' });
+    return json(200, {
+      status: configured ? 'ok' : 'degraded',
+      mail: configured ? 'configured' : 'not_configured',
+      delivery: 'not_checked',
+    });
   };
 
   const handle = async (request, env, { requireTiming = true } = {}) => {
@@ -345,7 +373,7 @@ export function createEnquiryRuntime({
       });
     }
 
-    const sent = await sendWithResend(enquiry, env, fetchImpl);
+    const sent = await sendWithGmail(enquiry, env, sendImpl);
     if (!sent.ok) {
       await duplicates.release(enquiry);
       return json(sent.status, {

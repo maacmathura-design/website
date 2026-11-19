@@ -2,7 +2,7 @@
 
 The public website (React) and the admission enquiry API.
 
-The deployment target is Cloudflare Pages for the site and Pages Functions for `/api`, with Resend sending the enquiry email. See [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md). The Express API in `backend/` is still here and still works locally. Do not remove it until that migration is explicitly approved.
+The deployment target is Cloudflare Pages for the site and Pages Functions for `/api`, with Gmail SMTP sending the enquiry email. See [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md). The Express API in `backend/` is still here and still works locally. Do not remove it until that migration is explicitly approved.
 
 The notes below about Hostinger describe an earlier hosting option. They are not the current deployment path.
 

@@ -32,9 +32,9 @@ const request = (body, { headers = {}, raw } = {}) => new Request('https://maac.
   body: raw === undefined ? JSON.stringify(body) : raw,
 });
 
-const okFetch = (sent) => async (url, init) => {
-  sent.push({ url, init });
-  return new Response(JSON.stringify({ id: 'email_123' }), { status: 200, headers: { 'content-type': 'application/json' } });
+const recordSend = (sent) => async (message) => {
+  sent.push(message);
+  return { messageId: 'email_123' };
 };
 
 test('the function allowlist matches the Express allowlist', () => {
@@ -42,40 +42,37 @@ test('the function allowlist matches the Express allowlist', () => {
   assert.deepEqual(functionOptions, backend);
 });
 
-test('a valid enquiry is sent through Resend without leaking the API key', async () => {
+test('a valid enquiry is sent through Gmail without leaking the app password', async () => {
   const sent = [];
-  const runtime = createEnquiryRuntime({ fetchImpl: okFetch(sent) });
+  const runtime = createEnquiryRuntime({ sendImpl: recordSend(sent) });
   const response = await runtime.handle(request(validBody()), ENV);
   const body = await response.json();
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.equal(sent.length, 1);
-  assert.equal(sent[0].url, 'https://api.resend.com/emails');
-  assert.equal(sent[0].init.headers.Authorization, `Bearer ${KEY}`);
-  const payload = JSON.parse(sent[0].init.body);
-  assert.deepEqual(payload.to, [ENV.ENQUIRY_TO_EMAIL]);
-  assert.equal(payload.from, ENV.ENQUIRY_FROM_EMAIL);
-  assert.equal(payload.reply_to, 'asha@example.com');
-  assert.match(payload.subject, /VFX – ADVFX PLUS – Asha Sharma/);
-  assert.match(payload.text, /Mobile number: \+91 98765 43210/);
-  assert.match(payload.html, /Enquire Now pop-up/);
+  assert.equal(sent[0].to, ENV.ENQUIRY_TO_EMAIL);
+  assert.equal(sent[0].from, ENV.ENQUIRY_FROM_EMAIL);
+  assert.equal(sent[0].replyTo, 'asha@example.com');
+  assert.match(sent[0].subject, /VFX – ADVFX PLUS – Asha Sharma/);
+  assert.match(sent[0].text, /Mobile number: \+91 98765 43210/);
+  assert.match(sent[0].html, /Enquire Now pop-up/);
   assert.equal(JSON.stringify(body).includes(KEY), false);
-  assert.equal(payload.html.includes('<script>'), false);
+  assert.equal(sent[0].html.includes('<script>'), false);
+  assert.equal(JSON.stringify(sent[0]).includes(KEY), false);
 });
 
 test('HTML email escapes student content', async () => {
   const sent = [];
-  const runtime = createEnquiryRuntime({ fetchImpl: okFetch(sent) });
+  const runtime = createEnquiryRuntime({ sendImpl: recordSend(sent) });
   await runtime.handle(request(validBody({ message: '<script>alert("x")</script> & <b>bold</b>' })), ENV);
-  const payload = JSON.parse(sent[0].init.body);
-  assert.equal(payload.html.includes('<script>'), false);
-  assert.match(payload.html, /&lt;script&gt;/);
-  assert.match(payload.text, /<script>alert\("x"\)<\/script>/);
+  assert.equal(sent[0].html.includes('<script>'), false);
+  assert.match(sent[0].html, /&lt;script&gt;/);
+  assert.match(sent[0].text, /<script>alert\("x"\)<\/script>/);
 });
 
 test('missing and invalid fields are rejected', async () => {
-  const runtime = createEnquiryRuntime({ fetchImpl: async () => { throw new Error('should not send'); } });
+  const runtime = createEnquiryRuntime({ sendImpl: async () => { throw new Error('should not send'); } });
   const missing = await runtime.handle(request({ elapsedMs: 8000, website: '' }), ENV);
   const missingBody = await missing.json();
   assert.equal(missing.status, 422);
@@ -103,7 +100,7 @@ test('malformed, non-JSON and oversized bodies are rejected', async () => {
 
 test('honeypot, missing timing and link spam are dropped without sending', async () => {
   let calls = 0;
-  const runtime = createEnquiryRuntime({ fetchImpl: async () => { calls += 1; return new Response('{}', { status: 200 }); } });
+  const runtime = createEnquiryRuntime({ sendImpl: async () => { calls += 1; return { messageId: 'email_123' }; } });
   for (const body of [
     validBody({ website: 'https://spam.example' }),
     validBody({ elapsedMs: undefined }),
@@ -127,13 +124,15 @@ test('a duplicate enquiry is acknowledged once and a failed send can be retried'
   const sent = [];
   let fail = true;
   const runtime = createEnquiryRuntime({
-    fetchImpl: async (url, init) => {
+    sendImpl: async (message) => {
       if (fail) {
         fail = false;
-        return new Response('{}', { status: 500 });
+        const error = new Error('mailbox unavailable');
+        error.responseCode = 450;
+        throw error;
       }
-      sent.push(init);
-      return new Response(JSON.stringify({ id: 'email_123' }), { status: 200 });
+      sent.push(message);
+      return { messageId: 'email_123' };
     },
   });
   const first = await runtime.handle(request(validBody()), ENV);
@@ -145,9 +144,14 @@ test('a duplicate enquiry is acknowledged once and a failed send can be retried'
   assert.equal(sent.length, 1);
 });
 
-test('an authentication failure from Resend does not reveal the key', async () => {
+test('an authentication failure from Gmail does not reveal the app password', async () => {
   const runtime = createEnquiryRuntime({
-    fetchImpl: async () => new Response(JSON.stringify({ message: KEY }), { status: 401 }),
+    sendImpl: async () => {
+      const error = new Error(`Invalid login: ${KEY}`);
+      error.code = 'EAUTH';
+      error.responseCode = 535;
+      throw error;
+    },
   });
   const response = await runtime.handle(request(validBody()), ENV);
   const body = await response.json();
@@ -158,7 +162,7 @@ test('an authentication failure from Resend does not reveal the key', async () =
 
 test('missing mail configuration returns 503', async () => {
   let calls = 0;
-  const runtime = createEnquiryRuntime({ fetchImpl: async () => { calls += 1; return new Response('{}'); } });
+  const runtime = createEnquiryRuntime({ sendImpl: async () => { calls += 1; return { messageId: 'email_123' }; } });
   const response = await runtime.handle(request(validBody()), {});
   assert.equal(response.status, 503);
   assert.equal(calls, 0);
@@ -166,7 +170,7 @@ test('missing mail configuration returns 503', async () => {
 
 test('repeated posts from one address are rate limited', async () => {
   const runtime = createEnquiryRuntime({
-    fetchImpl: async () => new Response(JSON.stringify({ id: 'email_123' }), { status: 200 }),
+    sendImpl: async () => ({ messageId: 'email_123' }),
   });
   for (let index = 0; index < 5; index += 1) {
     const response = await runtime.handle(request(validBody({ email: `student${index}@example.com` })), ENV);
@@ -183,10 +187,10 @@ test('health reports configuration without values', async () => {
   const runtime = createEnquiryRuntime();
   const ready = await runtime.health(ENV);
   const readyBody = await ready.json();
-  assert.deepEqual(readyBody, { status: 'ok', mail: 'configured' });
+  assert.deepEqual(readyBody, { status: 'ok', mail: 'configured', delivery: 'not_checked' });
   assert.equal(JSON.stringify(readyBody).includes(KEY), false);
   assert.equal(JSON.stringify(readyBody).includes('admissions@example.com'), false);
 
   const missing = await (await runtime.health({})).json();
-  assert.deepEqual(missing, { status: 'degraded', mail: 'not_configured' });
+  assert.deepEqual(missing, { status: 'degraded', mail: 'not_configured', delivery: 'not_checked' });
 });
