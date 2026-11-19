@@ -226,6 +226,42 @@ function isAuthFailure(error) {
   return error?.code === 'EAUTH' || error?.responseCode === 535 || error?.responseCode === 534;
 }
 
+function bindingFlags(env) {
+  return {
+    RESEND_API_KEY: Boolean(env?.RESEND_API_KEY),
+    ENQUIRY_FROM_EMAIL: Boolean(env?.ENQUIRY_FROM_EMAIL),
+    ENQUIRY_TO_EMAIL: Boolean(env?.ENQUIRY_TO_EMAIL),
+  };
+}
+
+function failureStage(error) {
+  if (isAuthFailure(error)) return 'authentication';
+  const command = String(error?.command || '');
+  if (command === 'CONN' || ['ESOCKET', 'ECONNECTION', 'ETIMEDOUT', 'EDNS', 'ESERVFAIL'].includes(error?.code)) return 'connection';
+  if (command) return 'send';
+  return 'unknown';
+}
+
+function sanitizeMailError(error, env) {
+  let message = String(error?.response || error?.message || '');
+  for (const value of [env?.RESEND_API_KEY, env?.ENQUIRY_FROM_EMAIL, env?.ENQUIRY_TO_EMAIL]) {
+    if (typeof value === 'string' && value.length >= 3) message = message.split(value).join('[redacted]');
+  }
+  return message.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]').replace(/\s+/g, ' ').trim().slice(0, 180);
+}
+
+function mailDiagnostics(env) {
+  const from = typeof env?.ENQUIRY_FROM_EMAIL === 'string' ? env.ENQUIRY_FROM_EMAIL : '';
+  const password = typeof env?.RESEND_API_KEY === 'string' ? env.RESEND_API_KEY : '';
+  return {
+    transport: 'gmail-smtp',
+    variables: bindingFlags(env),
+    fromAddressIsBareMailbox: /^[^\s@<>]+@[^\s@<>]+$/.test(from.trim()),
+    fromHasEdgeWhitespace: from !== from.trim(),
+    passwordHasEdgeWhitespace: password !== password.trim(),
+  };
+}
+
 async function deliverWithGmail(message, env) {
   const transport = nodemailer.createTransport({
     host: SMTP_HOST,
@@ -269,9 +305,13 @@ async function sendWithGmail(enquiry, env, sendImpl) {
   } catch (error) {
     const authFailed = isAuthFailure(error);
     log('error', 'enquiry.email_error', {
+      ...mailDiagnostics(env),
+      stage: failureStage(error),
       kind: authFailed ? 'auth_failed' : 'delivery_failed',
       code: error?.code || null,
       responseCode: error?.responseCode || null,
+      command: error?.command || null,
+      message: sanitizeMailError(error, env),
     });
     return { ok: false, status: authFailed ? 503 : 502, error: authFailed ? 'email_unavailable' : 'email_failed' };
   }
@@ -365,7 +405,7 @@ export function createEnquiryRuntime({
 
     if (!mailConfigured(env)) {
       await duplicates.release(enquiry);
-      log('error', 'enquiry.email_error', { kind: 'not_configured' });
+      log('error', 'enquiry.email_error', { ...mailDiagnostics(env), stage: 'configuration', kind: 'not_configured' });
       return json(503, {
         ok: false,
         error: 'email_unavailable',

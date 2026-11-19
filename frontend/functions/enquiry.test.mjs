@@ -145,19 +145,33 @@ test('a duplicate enquiry is acknowledged once and a failed send can be retried'
 });
 
 test('an authentication failure from Gmail does not reveal the app password', async () => {
-  const runtime = createEnquiryRuntime({
-    sendImpl: async () => {
-      const error = new Error(`Invalid login: ${KEY}`);
-      error.code = 'EAUTH';
-      error.responseCode = 535;
-      throw error;
-    },
-  });
-  const response = await runtime.handle(request(validBody()), ENV);
-  const body = await response.json();
-  assert.equal(response.status, 503);
-  assert.equal(body.error, 'email_unavailable');
-  assert.equal(JSON.stringify(body).includes(KEY), false);
+  const lines = [];
+  const original = console.error;
+  console.error = (line) => lines.push(String(line));
+  try {
+    const runtime = createEnquiryRuntime({
+      sendImpl: async () => {
+        const error = new Error(`535-5.7.8 Username and Password not accepted. ${KEY}`);
+        error.code = 'EAUTH';
+        error.responseCode = 535;
+        error.command = 'AUTH PLAIN';
+        throw error;
+      },
+    });
+    const response = await runtime.handle(request(validBody()), ENV);
+    const body = await response.json();
+    assert.equal(response.status, 503);
+    assert.equal(body.error, 'email_unavailable');
+    assert.equal(JSON.stringify(body).includes(KEY), false);
+    const logged = lines.join('\n');
+    assert.equal(logged.includes(KEY), false);
+    assert.match(logged, /"transport":"gmail-smtp"/);
+    assert.match(logged, /"stage":"authentication"/);
+    assert.match(logged, /"responseCode":535/);
+    assert.match(logged, /Username and Password not accepted/);
+  } finally {
+    console.error = original;
+  }
 });
 
 test('missing mail configuration returns 503', async () => {
