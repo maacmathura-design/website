@@ -1,5 +1,5 @@
 // Development only (CRA loads this file in `npm start`, never in builds): forwards /api to the
-// local enquiry API so the browser makes same-origin requests, as it does in production.
+// Express enquiry API. Production posts to the same /api path, served by Cloudflare Pages Functions.
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = (app) => {

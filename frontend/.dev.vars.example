@@ -1,0 +1,5 @@
+# Copy to frontend/.dev.vars for `npm run pages:dev`. That file is gitignored.
+# Use a real Resend key only on your machine. Do not commit it.
+RESEND_API_KEY=
+ENQUIRY_TO_EMAIL=
+ENQUIRY_FROM_EMAIL=

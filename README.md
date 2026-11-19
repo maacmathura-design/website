@@ -1,6 +1,10 @@
 # MAAC Mathura
 
-The public website (React) and the admission enquiry API (Express, Gmail SMTP). One Node.js process serves both, so browser calls stay on the same origin.
+The public website (React) and the admission enquiry API.
+
+The deployment target is Cloudflare Pages for the site and Pages Functions for `/api`, with Resend sending the enquiry email. See [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md). The Express API in `backend/` is still here and still works locally. Do not remove it until that migration is explicitly approved.
+
+The notes below about Hostinger describe an earlier hosting option. They are not the current deployment path.
 
 No Hostinger plan is selected in this repository. The hosting decision below is based on Hostinger’s published Node.js documentation, checked for this release. Do not upload the site, buy a plan, or change DNS until that choice is confirmed.
 

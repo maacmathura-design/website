@@ -21,6 +21,8 @@
     "prebuild": "node scripts/check-production-env.js && node scripts/write-sitemap.js",
     "build": "IMAGE_INLINE_SIZE_LIMIT=2048 GENERATE_SOURCEMAP=false react-scripts build",
     "test": "react-scripts test",
+    "test:functions": "node --test functions/enquiry.test.mjs",
+    "pages:dev": "wrangler pages dev build --compatibility-date=2026-11-19 --port 8788",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -43,6 +45,7 @@
   },
   "devDependencies": {
     "http-proxy-middleware": "^2.0.12",
-    "sharp": "^0.35.5"
+    "sharp": "^0.35.5",
+    "wrangler": "^4.165.0"
   }
 }

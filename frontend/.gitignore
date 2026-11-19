@@ -21,3 +21,7 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Wrangler local secrets and cache. Never commit a real Resend key.
+.dev.vars
+.wrangler/
