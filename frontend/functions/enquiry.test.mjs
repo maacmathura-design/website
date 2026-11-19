@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createEnquiryRuntime } from './_lib/enquiryCore.mjs';
+import functionOptions from './_lib/enquiryOptions.mjs';
 
 const KEY = 're_test_key_do_not_log';
 const ENV = {
@@ -37,9 +38,8 @@ const okFetch = (sent) => async (url, init) => {
 };
 
 test('the function allowlist matches the Express allowlist', () => {
-  const here = JSON.parse(readFileSync(new URL('./_lib/enquiryOptions.json', import.meta.url), 'utf8'));
   const backend = JSON.parse(readFileSync(new URL('../../backend/src/enquiryOptions.json', import.meta.url), 'utf8'));
-  assert.deepEqual(here, backend);
+  assert.deepEqual(functionOptions, backend);
 });
 
 test('a valid enquiry is sent through Resend without leaking the API key', async () => {

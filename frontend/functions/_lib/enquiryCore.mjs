@@ -1,4 +1,4 @@
-import options from './enquiryOptions.json' with { type: 'json' };
+import options from './enquiryOptions.mjs';
 
 const LIMITS = { name: 80, email: 120, message: 1000, sourcePage: 300, bodyBytes: 10 * 1024 };
 const EMAIL_PATTERN = /^[^\s@<>()[\]\\,;:"]+@[^\s@<>()[\]\\,;:"]+\.[^\s@<>()[\]\\,;:"]{2,}$/;
@@ -364,10 +364,10 @@ export function createEnquiryRuntime({
 
 const runtime = createEnquiryRuntime();
 
-export function onRequestPost(context, options) {
+export function handleEnquiry(context, options) {
   return runtime.handle(context.request, context.env, options);
 }
 
-export function onRequestGet(context) {
+export function enquiryHealth(context) {
   return runtime.health(context.env);
 }

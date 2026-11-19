@@ -1,4 +1,4 @@
-{
+const options = {
   "courses": {
     "animation": "3D Animation – AD3D Edge PLUS",
     "vfx": "VFX – ADVFX PLUS",
@@ -35,4 +35,6 @@
     "page": "Enquiry form on the page",
     "popup": "Enquire Now pop-up"
   }
-}
+};
+
+export default options;
