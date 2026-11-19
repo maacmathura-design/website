@@ -1,0 +1,168 @@
+/* `translate` is used for show/hide because Framer Motion owns `transform` on these elements. */
+
+.dock {
+  position: fixed;
+  right: max(var(--space-4), env(safe-area-inset-right));
+  bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  z-index: var(--z-floating);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.round {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--glass-bg-strong);
+  color: var(--color-text);
+  font-size: 1.3rem;
+  text-decoration: none;
+  box-shadow: var(--shadow-md);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  transition: filter var(--duration-fast) var(--ease-out);
+}
+
+.round::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: calc(100% + var(--space-2));
+  top: 50%;
+  translate: 0 -50%;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-text);
+  color: var(--color-bg);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.round:hover,
+.round:focus-visible {
+  filter: brightness(1.08);
+}
+
+.round:hover::after,
+.round:focus-visible::after {
+  opacity: 1;
+}
+
+.whatsapp {
+  border-color: transparent;
+  background-color: var(--color-whatsapp);
+  color: var(--color-on-whatsapp);
+  font-size: 1.5rem;
+}
+
+.facebook {
+  border-color: transparent;
+  background-color: var(--color-facebook);
+  color: var(--color-on-facebook);
+}
+
+.instagram {
+  border-color: transparent;
+  background-image: var(--gradient-instagram);
+  color: var(--color-on-instagram);
+}
+
+.enquire {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 52px;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-accent), var(--shadow-md);
+  cursor: pointer;
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    translate var(--duration-base) var(--ease-out),
+    visibility 0s linear 0s;
+}
+
+.enquire svg {
+  font-size: 1.2rem;
+}
+
+/* The page's own enquiry form is on screen: the floating pill steps aside. */
+.formInView .enquire {
+  opacity: 0;
+  translate: 0 0.75rem;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    translate var(--duration-base) var(--ease-out),
+    visibility 0s linear var(--duration-base);
+}
+
+@media (max-width: 767px) {
+  .dock {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--mobile-cta-height);
+    padding: var(--space-2) max(var(--space-4), env(safe-area-inset-right)) max(var(--space-2), env(safe-area-inset-bottom))
+      max(var(--space-4), env(safe-area-inset-left));
+    border-top: 1px solid var(--glass-border);
+    background-color: var(--glass-bg-strong);
+    box-shadow: var(--shadow-lg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    transition:
+      translate var(--duration-base) var(--ease-out),
+      visibility 0s linear 0s;
+  }
+
+  .round {
+    width: 44px;
+    height: 44px;
+    box-shadow: none;
+  }
+
+  .round::after {
+    display: none;
+  }
+
+  .enquire {
+    flex: 1;
+    min-height: 44px;
+    box-shadow: var(--shadow-accent);
+  }
+
+  .formInView {
+    translate: 0 110%;
+    visibility: hidden;
+    transition:
+      translate var(--duration-base) var(--ease-out),
+      visibility 0s linear var(--duration-base);
+  }
+
+  .formInView .enquire {
+    opacity: 1;
+    translate: none;
+  }
+}

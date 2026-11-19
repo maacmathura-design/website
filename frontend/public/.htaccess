@@ -1,0 +1,11 @@
+# Apache fallback for a static upload of this build (public_html).
+# Hostinger's Node.js plans do not use this file: Express serves index.html for
+# React Router paths. Do not add an HTTPS rewrite here; enable SSL in hPanel.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

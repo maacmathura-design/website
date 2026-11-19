@@ -1,0 +1,120 @@
+/* Justified rows: every tile keeps its aspect ratio and each row fills the width. */
+.grid {
+  --row-height: 8.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.grid::after {
+  content: '';
+  flex-grow: 1000;
+}
+
+@media (min-width: 768px) {
+  .grid {
+    --row-height: 12rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .grid {
+    --row-height: 14rem;
+    gap: var(--space-4);
+  }
+}
+
+.cell {
+  flex: calc(var(--ratio) * 100) 1 calc(var(--ratio) * var(--row-height));
+  aspect-ratio: var(--ratio);
+  min-width: 0;
+}
+
+.thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-media-fallback);
+  cursor: zoom-in;
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--duration-slow) var(--ease-out);
+}
+
+.zoom {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  background-color: var(--overlay-media-strong);
+  color: var(--color-on-media);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+}
+
+.thumb:hover .image,
+.thumb:focus-visible .image {
+  transform: scale(1.06);
+}
+
+.thumb:hover .zoom,
+.thumb:focus-visible .zoom {
+  opacity: 1;
+  transform: none;
+}
+
+@media (hover: none) {
+  .zoom {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lightboxBody {
+  padding-top: var(--space-4);
+}
+
+.figure {
+  margin: 0;
+}
+
+.preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background-color: var(--color-media-fallback);
+}
+
+.caption {
+  margin-top: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.lightboxNav {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}

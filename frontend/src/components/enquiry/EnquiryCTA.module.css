@@ -1,0 +1,32 @@
+.cta {
+  display: grid;
+  gap: var(--space-8);
+  overflow: hidden;
+  background-image: var(--gradient-glow);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (min-width: 768px) {
+  .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+@media (min-width: 1024px) {
+  .cta {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-12);
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

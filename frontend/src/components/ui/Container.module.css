@@ -1,0 +1,18 @@
+.container {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: var(--container-padding);
+  max-width: calc(var(--container-max) + 2 * var(--container-padding));
+}
+
+.narrow {
+  max-width: calc(var(--container-narrow) + 2 * var(--container-padding));
+}
+
+.wide {
+  max-width: calc(var(--container-wide) + 2 * var(--container-padding));
+}
+
+.full {
+  max-width: none;
+}

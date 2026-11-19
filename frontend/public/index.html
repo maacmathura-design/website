@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="theme-color" content="#101114" />
+    <script>
+      (function () {
+        var theme;
+        try {
+          var stored = window.localStorage.getItem('maac-theme');
+          if (stored === 'light' || stored === 'dark') theme = stored;
+        } catch (error) {}
+        if (!theme) {
+          theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+        var themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) themeMeta.setAttribute('content', theme === 'light' ? '#f7f7f5' : '#101114');
+      })();
+    </script>
+    <style>
+      html[data-theme='dark'] { background-color: #101114; color-scheme: dark; }
+      html[data-theme='light'] { background-color: #f7f7f5; color-scheme: light; }
+    </style>
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" sizes="any" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon-192.png" type="image/png" sizes="192x192" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="MAAC Mathura teaches animation, VFX, game design and digital design. Explore the programmes and send an admission enquiry."
+    />
+    <meta property="og:title" content="MAAC Mathura" />
+    <meta property="og:description" content="MAAC Mathura teaches animation, VFX, game design and digital design. Explore the programmes and send an admission enquiry." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="MAAC Mathura" />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:image" content="%PUBLIC_URL%/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="MAAC Mathura" />
+    <meta name="twitter:description" content="MAAC Mathura teaches animation, VFX, game design and digital design. Explore the programmes and send an admission enquiry." />
+    <meta name="twitter:image" content="%PUBLIC_URL%/og.png" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>MAAC Mathura</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

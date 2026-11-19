@@ -1,0 +1,4 @@
+.section {
+  background-image: var(--gradient-glow);
+  background-repeat: no-repeat;
+}

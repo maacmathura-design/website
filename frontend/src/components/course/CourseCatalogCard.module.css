@@ -1,0 +1,87 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Clears the sticky header and the category bar below it; must outrank the global [id] rule. */
+.card[id] {
+  scroll-margin-top: calc(var(--header-height) + 5.5rem);
+}
+
+.highlighted {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card:hover .visual > img {
+    transform: scale(1.06);
+  }
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.meta li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.meta svg {
+  color: var(--color-accent-text);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  text-wrap: balance;
+}
+
+.description {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+}
+
+.clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+@media (min-width: 1024px) {
+  .expanded .body {
+    padding: var(--space-8);
+  }
+}

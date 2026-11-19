@@ -1,0 +1,71 @@
+/* Flex rather than grid so an incomplete last row stays centred. */
+.grid {
+  --columns: 2;
+  --gap: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    --columns: 3;
+  }
+}
+
+@media (min-width: 900px) {
+  .grid {
+    --columns: 4;
+  }
+}
+
+@media (min-width: 1200px) {
+  .grid {
+    --columns: 6;
+    --gap: var(--space-4);
+  }
+}
+
+.item {
+  flex: 0 0 calc((100% - (var(--columns) - 1) * var(--gap)) / var(--columns));
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 64px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  transition: border-color var(--duration-fast) var(--ease-out), transform var(--duration-base) var(--ease-out);
+}
+
+.item:hover {
+  border-color: var(--color-accent);
+}
+
+.tile {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-logo-tile);
+}
+
+.tile img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+}

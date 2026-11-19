@@ -1,0 +1,118 @@
+.logosHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.pause {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.pause:hover {
+  border-color: var(--color-accent);
+}
+
+.logosHeading {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, var(--color-bg) 8%, var(--color-bg) 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, var(--color-bg) 8%, var(--color-bg) 92%, transparent);
+}
+
+.track {
+  display: flex;
+  width: max-content;
+  animation: scroll 60s linear infinite;
+}
+
+.marquee:hover .track,
+.paused .track {
+  animation-play-state: paused;
+}
+
+.row {
+  display: flex;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0 var(--space-4) 0 0;
+  list-style: none;
+}
+
+@keyframes scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.logo {
+  display: block;
+  flex-shrink: 0;
+  width: 10.5rem;
+  height: 5.5rem;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-logo-tile);
+}
+
+.logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.disclaimer {
+  margin: var(--space-6) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pause {
+    display: none;
+  }
+
+  .marquee {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .track {
+    width: auto;
+    animation: none;
+  }
+
+  .row {
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .row[aria-hidden='true'] {
+    display: none;
+  }
+}

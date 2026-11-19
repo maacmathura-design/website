@@ -1,0 +1,24 @@
+{
+  "name": "maac-mathura-enquiry-api",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Admission enquiry API for the MAAC Mathura website (Express + Gmail SMTP).",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test test/*.test.js",
+    "smoke:email": "node scripts/send-test-enquiry.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.3",
+    "express-rate-limit": "^7.5.1",
+    "nodemailer": "^10.6.0"
+  }
+}

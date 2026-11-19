@@ -1,0 +1,223 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  color: var(--color-text);
+  border-bottom: 1px solid transparent;
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+
+.solid {
+  background-color: var(--glass-bg-strong);
+  border-bottom-color: var(--color-border);
+  box-shadow: var(--shadow-sm);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+}
+
+.overHero {
+  background-color: transparent;
+}
+
+.skip {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 1;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip:focus-visible {
+  transform: none;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--header-height);
+}
+
+.brand {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-right: auto;
+  border-radius: var(--radius-sm);
+}
+
+/* The logo artwork has dark lettering on transparency, so it sits on a light tile in both themes. */
+.logo {
+  display: block;
+  width: auto;
+  height: 40px;
+  aspect-ratio: 206 / 76;
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-logo-tile);
+}
+
+.nav {
+  display: none;
+}
+
+.navList {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navLink {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+
+.navLink:hover,
+.navLink[aria-expanded='true'] {
+  background-color: var(--color-surface-hover);
+}
+
+.overHero .navLink:hover,
+.overHero .navLink[aria-expanded='true'] {
+  background-color: var(--glass-bg);
+}
+
+.active::after {
+  content: '';
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: 4px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.call {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+.call:hover {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent-soft);
+}
+
+.callLabel {
+  display: none;
+}
+
+.enquire {
+  padding: 0 var(--space-3);
+}
+
+.menuButton {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 1.35rem;
+  cursor: pointer;
+}
+
+.menuButton:hover {
+  background-color: var(--color-surface-hover);
+}
+
+@media (max-width: 359px) {
+  .logo {
+    height: 34px;
+  }
+
+  .bar {
+    gap: var(--space-2);
+  }
+}
+
+@media (min-width: 768px) {
+  .enquire {
+    padding: 0 var(--space-4);
+  }
+}
+
+@media (min-width: 1024px) {
+  .nav {
+    display: block;
+  }
+
+  .menuButton {
+    display: none;
+  }
+
+  .call {
+    display: inline-flex;
+  }
+
+  .logo {
+    height: 44px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .callLabel {
+    display: inline;
+  }
+
+  .navList {
+    gap: var(--space-2);
+  }
+
+  .bar {
+    gap: var(--space-6);
+  }
+}
