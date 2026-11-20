@@ -211,10 +211,47 @@ function json(status, body, headers = {}) {
 }
 
 function log(level, event, fields = {}) {
-  const line = JSON.stringify({ time: new Date().toISOString(), level, event, ...fields });
+  let line;
+  try {
+    line = JSON.stringify({ time: new Date().toISOString(), level, event, ...fields });
+  } catch {
+    line = JSON.stringify({ time: new Date().toISOString(), level, event, message: 'unserializable' });
+  }
   if (level === 'error') console.error(line);
   else console.log(line);
 }
+
+function redactSecrets(value, env) {
+  let text = String(value ?? '');
+  for (const secret of [env?.RESEND_API_KEY, env?.ENQUIRY_FROM_EMAIL, env?.ENQUIRY_TO_EMAIL]) {
+    if (typeof secret === 'string' && secret.length >= 3) text = text.split(secret).join('[redacted]');
+  }
+  return text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]');
+}
+
+function safeCode(error) {
+  const code = error?.code;
+  return typeof code === 'string' || typeof code === 'number' ? code : null;
+}
+
+/** Logs an unexpected exception without credentials or the enquiry body. Never throws. */
+function logUnexpected(error, env) {
+  const stack = typeof error?.stack === 'string'
+    ? error.stack.split('\n').slice(0, 12).map((line) => redactSecrets(line, env).replace(/\s+/g, ' ').trim()).join('\n').slice(0, 1500)
+    : null;
+  log('error', 'enquiry.unhandled', {
+    name: typeof error?.name === 'string' ? error.name.slice(0, 80) : 'Error',
+    code: safeCode(error),
+    message: redactSecrets(error?.message, env).replace(/\s+/g, ' ').trim().slice(0, 180),
+    stack,
+  });
+}
+
+const UNEXPECTED_RESPONSE = {
+  ok: false,
+  error: 'internal_error',
+  message: 'Sorry, we could not send your enquiry right now. Please try again in a few minutes, or call or WhatsApp us.',
+};
 
 function mailConfigured(env) {
   return Boolean(env?.RESEND_API_KEY && env?.ENQUIRY_TO_EMAIL && env?.ENQUIRY_FROM_EMAIL);
@@ -243,11 +280,7 @@ function failureStage(error) {
 }
 
 function sanitizeMailError(error, env) {
-  let message = String(error?.response || error?.message || '');
-  for (const value of [env?.RESEND_API_KEY, env?.ENQUIRY_FROM_EMAIL, env?.ENQUIRY_TO_EMAIL]) {
-    if (typeof value === 'string' && value.length >= 3) message = message.split(value).join('[redacted]');
-  }
-  return message.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]').replace(/\s+/g, ' ').trim().slice(0, 180);
+  return redactSecrets(error?.response || error?.message || '', env).replace(/\s+/g, ' ').trim().slice(0, 180);
 }
 
 function mailDiagnostics(env) {
@@ -273,9 +306,29 @@ async function deliverWithGmail(message, env) {
     socketTimeout: 20000,
     tls: { rejectUnauthorized: true, servername: SMTP_HOST },
     getSocket(_options, callback) {
-      const socket = tls.connect({ host: SMTP_HOST, port: 465, servername: SMTP_HOST, rejectUnauthorized: true });
-      socket.once('secureConnect', () => callback(null, { connection: socket, secured: true }));
-      socket.once('error', (error) => callback(error));
+      // Nodemailer calls this from an async callback. A throw here does not reject sendMail,
+      // so every failure has to reach `callback` instead of escaping the Pages Function.
+      let settled = false;
+      const finish = (error, socket) => {
+        if (settled) return;
+        settled = true;
+        try {
+          if (error) callback(error);
+          else callback(null, { connection: socket, secured: true });
+        } catch {
+          try { socket?.destroy(); } catch { /* the socket is already unusable */ }
+        }
+      };
+      try {
+        const socket = tls.connect({ host: SMTP_HOST, port: 465, servername: SMTP_HOST, rejectUnauthorized: true });
+        socket.once('secureConnect', () => finish(null, socket));
+        socket.once('error', (error) => {
+          try { socket.destroy(); } catch { /* already closing */ }
+          finish(error);
+        });
+      } catch (error) {
+        finish(error);
+      }
     },
   });
   try {
@@ -290,27 +343,28 @@ function clientIp(request) {
 }
 
 async function sendWithGmail(enquiry, env, sendImpl) {
-  const { subject, text: plain, html } = buildEnquiryEmail(enquiry);
-  const message = {
-    from: env.ENQUIRY_FROM_EMAIL,
-    to: env.ENQUIRY_TO_EMAIL,
-    replyTo: enquiry.email,
-    subject,
-    text: plain,
-    html,
-  };
   try {
+    const { subject, text: plain, html } = buildEnquiryEmail(enquiry);
+    const message = {
+      from: env.ENQUIRY_FROM_EMAIL,
+      to: env.ENQUIRY_TO_EMAIL,
+      replyTo: enquiry.email,
+      subject,
+      text: plain,
+      html,
+    };
     const info = await sendImpl(message, env);
     return { ok: true, id: info?.messageId || null };
   } catch (error) {
     const authFailed = isAuthFailure(error);
+    const command = error?.command;
     log('error', 'enquiry.email_error', {
       ...mailDiagnostics(env),
       stage: failureStage(error),
       kind: authFailed ? 'auth_failed' : 'delivery_failed',
-      code: error?.code || null,
-      responseCode: error?.responseCode || null,
-      command: error?.command || null,
+      code: safeCode(error),
+      responseCode: typeof error?.responseCode === 'number' ? error.responseCode : null,
+      command: typeof command === 'string' ? command.slice(0, 40) : null,
       message: sanitizeMailError(error, env),
     });
     return { ok: false, status: authFailed ? 503 : 502, error: authFailed ? 'email_unavailable' : 'email_failed' };
@@ -342,7 +396,16 @@ export function createEnquiryRuntime({
     });
   };
 
-  const handle = async (request, env, { requireTiming = true } = {}) => {
+  const handle = async (request, env, options) => {
+    try {
+      return await perform(request, env, options);
+    } catch (error) {
+      logUnexpected(error, env);
+      return json(500, UNEXPECTED_RESPONSE);
+    }
+  };
+
+  const perform = async (request, env, { requireTiming = true } = {}) => {
     const limit = rate.take(clientIp(request));
     if (!limit.allowed) {
       log('warn', 'enquiry.rate_limited');
@@ -432,8 +495,15 @@ export function createEnquiryRuntime({
 
 const runtime = createEnquiryRuntime();
 
-export function handleEnquiry(context, options) {
-  return runtime.handle(context.request, context.env, options);
+export async function handleEnquiry(context, options) {
+  let env;
+  try {
+    env = context?.env;
+    return await runtime.handle(context.request, env, options);
+  } catch (error) {
+    logUnexpected(error, env);
+    return json(500, UNEXPECTED_RESPONSE);
+  }
 }
 
 export function enquiryHealth(context) {

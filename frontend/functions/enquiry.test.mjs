@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createEnquiryRuntime } from './_lib/enquiryCore.mjs';
+import { createEnquiryRuntime, handleEnquiry } from './_lib/enquiryCore.mjs';
 import functionOptions from './_lib/enquiryOptions.mjs';
 
 const KEY = 're_test_key_do_not_log';
@@ -195,6 +195,35 @@ test('repeated posts from one address are rate limited', async () => {
   assert.equal(blocked.status, 429);
   assert.equal(body.error, 'rate_limited');
   assert.ok(body.retryAfterSeconds >= 1);
+});
+
+test('an unexpected exception returns JSON 500 and the log hides secrets', async () => {
+  const lines = [];
+  const original = console.error;
+  console.error = (line) => lines.push(String(line));
+  try {
+    const response = await handleEnquiry({
+      get request() {
+        throw new Error(`socket boom ${KEY} student@example.com`);
+      },
+      env: ENV,
+    }, { requireTiming: true });
+    const body = await response.json();
+    assert.equal(response.status, 500);
+    assert.equal(body.ok, false);
+    assert.equal(body.error, 'internal_error');
+    assert.equal(body.ok === true, false);
+    const logged = lines.join('\n');
+    assert.equal(logged.includes(KEY), false);
+    assert.equal(logged.includes('student@example.com'), false);
+    assert.match(logged, /"event":"enquiry.unhandled"/);
+    assert.match(logged, /"name":"Error"/);
+    assert.match(logged, /"code":null/);
+    assert.match(logged, /socket boom \[redacted\] \[email\]/);
+    assert.match(logged, /"stack":/);
+  } finally {
+    console.error = original;
+  }
 });
 
 test('health reports configuration without values', async () => {
