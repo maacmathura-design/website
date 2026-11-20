@@ -1,7 +1,11 @@
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createEnquiryRuntime, handleEnquiry } from './_lib/enquiryCore.mjs';
+import nodemailer from 'nodemailer';
+import { createEnquiryRuntime, guardSmtpSocket, handleEnquiry } from './_lib/enquiryCore.mjs';
 import functionOptions from './_lib/enquiryOptions.mjs';
 
 const KEY = 're_test_key_do_not_log';
@@ -195,6 +199,85 @@ test('repeated posts from one address are rate limited', async () => {
   assert.equal(blocked.status, 429);
   assert.equal(body.error, 'rate_limited');
   assert.ok(body.retryAfterSeconds >= 1);
+});
+
+function throwingAddressSocket() {
+  const socket = new EventEmitter();
+  socket.destroyed = false;
+  socket.remoteAddress = 'smtp.gmail.com';
+  socket.remotePort = 465;
+  socket.localPort = 1;
+  Object.defineProperty(socket, 'localAddress', {
+    get() {
+      throw new Error('localAddress is unsupported on this socket');
+    },
+  });
+  for (const method of ['setTimeout', 'setKeepAlive', 'setNoDelay', 'resume', 'write', 'end', 'destroy']) {
+    socket[method] = () => socket;
+  }
+  return socket;
+}
+
+function sendThrough(socket) {
+  const transport = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: { user: 'probe-sender@example.com', pass: 'dummy-app-password' },
+    greetingTimeout: 200,
+    connectionTimeout: 200,
+    socketTimeout: 200,
+    getSocket(_options, callback) {
+      callback(null, { connection: socket, secured: true });
+    },
+  });
+  return transport.sendMail({
+    from: 'probe-sender@example.com',
+    to: 'probe-inbox@example.com',
+    subject: 'probe',
+    text: 'probe',
+  });
+}
+
+test('SMTPConnection._onConnect escapes sendMail unless the socket addresses are guarded', async () => {
+  const child = spawn(process.execPath, ['--input-type=module', '-e', `
+    import { EventEmitter } from 'node:events';
+    import nodemailer from 'nodemailer';
+    const socket = new EventEmitter();
+    socket.destroyed = false;
+    socket.remoteAddress = 'smtp.gmail.com';
+    socket.remotePort = 465;
+    socket.localPort = 1;
+    Object.defineProperty(socket, 'localAddress', { get() { throw new Error('localAddress is unsupported on this socket'); } });
+    for (const method of ['setTimeout', 'setKeepAlive', 'setNoDelay', 'resume', 'write', 'end', 'destroy']) socket[method] = () => socket;
+    const transport = nodemailer.createTransport({
+      host: 'smtp.gmail.com', port: 465, secure: true,
+      auth: { user: 'probe-sender@example.com', pass: 'dummy-app-password' },
+      getSocket(_options, callback) { callback(null, { connection: socket, secured: true }); },
+    });
+    transport.sendMail({ from: 'probe-sender@example.com', to: 'probe-inbox@example.com', subject: 'probe', text: 'probe' });
+  `], { cwd: fileURLToPath(new URL('..', import.meta.url)) });
+  let stderr = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exitCode = await new Promise((resolve) => {
+    const timer = setTimeout(() => { child.kill(); resolve(null); }, 1000);
+    child.on('exit', (code) => { clearTimeout(timer); resolve(code); });
+  });
+  assert.match(stderr, /localAddress is unsupported on this socket/);
+  assert.match(stderr, /_onConnect/);
+  assert.notEqual(exitCode, 0);
+
+  const uncaught = [];
+  const onUncaught = (error) => uncaught.push(error);
+  process.on('uncaughtException', onUncaught);
+  try {
+    await assert.rejects(sendThrough(guardSmtpSocket(throwingAddressSocket())));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(uncaught.length, 0);
+  } finally {
+    process.off('uncaughtException', onUncaught);
+  }
 });
 
 test('an unexpected exception returns JSON 500 and the log hides secrets', async () => {

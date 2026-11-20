@@ -295,6 +295,40 @@ function mailDiagnostics(env) {
   };
 }
 
+const SOCKET_FALLBACKS = { localAddress: '0.0.0.0', localPort: 0, remoteAddress: SMTP_HOST, remotePort: 465 };
+const OPTIONAL_SOCKET_METHODS = new Set(['setTimeout', 'setKeepAlive', 'setNoDelay', 'resume', 'removeListener']);
+
+/**
+ * Nodemailer reads these fields from `setImmediate` inside `SMTPConnection._onConnect`.
+ * A throw there is not a rejection of `sendMail`, so the Pages runtime reports Error 1101.
+ * Address getters on the Workers TLS socket can throw; the SMTP conversation does not need them.
+ */
+export function guardSmtpSocket(socket) {
+  return new Proxy(socket, {
+    get(target, prop, receiver) {
+      if (Object.prototype.hasOwnProperty.call(SOCKET_FALLBACKS, prop)) {
+        try {
+          const value = target[prop];
+          return value == null || value === '' ? SOCKET_FALLBACKS[prop] : value;
+        } catch {
+          return SOCKET_FALLBACKS[prop];
+        }
+      }
+      const value = Reflect.get(target, prop, receiver);
+      if (typeof value !== 'function') return value;
+      const bound = value.bind(target);
+      if (!OPTIONAL_SOCKET_METHODS.has(prop)) return bound;
+      return (...args) => {
+        try {
+          return bound(...args);
+        } catch {
+          return target;
+        }
+      };
+    },
+  });
+}
+
 async function deliverWithGmail(message, env) {
   const transport = nodemailer.createTransport({
     host: SMTP_HOST,
@@ -321,7 +355,7 @@ async function deliverWithGmail(message, env) {
       };
       try {
         const socket = tls.connect({ host: SMTP_HOST, port: 465, servername: SMTP_HOST, rejectUnauthorized: true });
-        socket.once('secureConnect', () => finish(null, socket));
+        socket.once('secureConnect', () => finish(null, guardSmtpSocket(socket)));
         socket.once('error', (error) => {
           try { socket.destroy(); } catch { /* already closing */ }
           finish(error);
